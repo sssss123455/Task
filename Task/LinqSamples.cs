@@ -6,6 +6,7 @@
 
 using SampleSupport;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Task.Data;
 
@@ -80,7 +81,7 @@ namespace SampleQueries
         {
             decimal price = 1111;
             Console.WriteLine($"sum total>{price}");
-            foreach (var item in dataSource.Customers.Where(x => x.Orders.Sum(y => y.Total) > price))
+            foreach (var item in dataSource.Customers.Where(x=>x.Orders.Max(y=>y.Total)>price))
             {
                 Console.WriteLine(item.CompanyName);
             }
@@ -91,18 +92,10 @@ namespace SampleQueries
 
         public void Linq4()
         {
-            foreach (var item in dataSource.Customers)
+            foreach (var item in dataSource.Customers.Where(z=>z.Orders.Length!=0))
             {
-                string text = null;
-                if (item.Orders.Length == 0)
-                {
-                    text = "No orders";
-                }
-                else
-                {
-                    text = $"Year:{item.Orders.OrderBy(x => x.OrderDate.Year).ThenBy(z => z.OrderDate.Month).First().OrderDate.Year} Month:{item.Orders.OrderBy(x => x.OrderDate.Year).ThenBy(z => z.OrderDate.Month).First().OrderDate.Month}";
-                }
-                Console.WriteLine($"Name:{item.CompanyName} {text}");
+                var order =item.Orders.OrderBy(x => x.OrderDate.Year).ThenBy(z => z.OrderDate.Month).First();
+                Console.WriteLine($"Name:{item.CompanyName} year:{order.OrderDate.Year} month:{order.OrderDate.Month}");
             }
         }
         [Category("Restriction Operators")]
@@ -111,13 +104,18 @@ namespace SampleQueries
 
         public void Linq5()
         {
-            foreach (var item in dataSource.Customers.Where(x=>x.Orders.Length!=0).OrderBy(x => x.Orders.FirstOrDefault().OrderDate.Year).ThenBy(x => x.Orders.FirstOrDefault().OrderDate.Month).ThenByDescending(x => x.Orders.Sum(y=>y.Total)).ThenBy(x => x.CompanyName))
+
+            List<dynamic> list = new List<dynamic>();
+            foreach (var item in dataSource.Customers.Where(y=>y.Orders.Length!=0))
             {
-                Console.WriteLine(item.CompanyName);
+                var data =  new { Name = item.CompanyName, Сirculation = item.Orders.Sum(x => x.Total), Date = item.Orders.First().OrderDate } ;
+                list.Add(data);
+
             }
-            foreach (var item in dataSource.Customers.Where(x => x.Orders.Length == 0).OrderBy(x => x.CompanyName))
+            
+            foreach (var item in list.OrderBy(x=>x.Date.Year).ThenBy(y=>y.Date.Month).ThenByDescending(z=>z.Сirculation).ThenBy(t=>t.Name))
             {
-                Console.WriteLine(item.CompanyName);
+                Console.WriteLine(item.Name);
             }
         }
         [Category("Restriction Operators")]
@@ -126,7 +124,7 @@ namespace SampleQueries
 
         public void Linq6()
         {
-            foreach (var item in dataSource.Customers.Where(x => x.Region == null || x.Phone.ToArray().FirstOrDefault() != '(' || int.TryParse(x.PostalCode, out _) != true))
+            foreach (var item in dataSource.Customers.Where(x => string.IsNullOrEmpty(x.Region)==true || x.Phone.StartsWith("(")==false || int.TryParse(x.PostalCode, out _) != true))
             {
                 Console.WriteLine(item.CompanyName);
             }
@@ -137,15 +135,14 @@ namespace SampleQueries
 
         public void Linq7()
         {
-            foreach (var category in dataSource.Products.GroupBy(x => x.Category))
+            var data =dataSource.Products.GroupBy(x => x.Category).Select(y => y.GroupBy(z=>z.UnitsInStock).Select(q=>q.OrderBy(w=>w.UnitPrice)));
+            foreach (var item in data)
             {
-                Console.WriteLine($"Category: {category.Key}");
-                foreach (var stock in category.GroupBy(y => y.UnitsInStock))
+                foreach (var item2 in item)
                 {
-                    Console.WriteLine($"Units In Stock: {stock.Key}");
-                    foreach (var item in stock.OrderBy(z => z.UnitPrice))
+                    foreach (var item3 in item2)
                     {
-                        Console.WriteLine($"Name: {item.ProductName} Price: {item.UnitPrice}");
+                        Console.WriteLine($"name: {item3.ProductName} price: {item3.UnitPrice}");
                     }
                 }
             }
@@ -156,34 +153,36 @@ namespace SampleQueries
 
         public void Linq8()
         {
-            var middlePrice = dataSource.Products.Sum(x => x.UnitPrice) / (dataSource.Products.Count());
-            Console.WriteLine("Low");
-            foreach (var item in dataSource.Products.Where(z => z.UnitPrice < middlePrice - 5.0000M).GroupBy(x => x.UnitPrice))
+            const decimal cheap = 5.0000M;
+            
+            const decimal expensive = 24.0000M;
+            var listCheap = dataSource.Products.GroupBy(x => x.UnitPrice < cheap).Where(y=>y.Key==true);
+            var listAverage = dataSource.Products.GroupBy(x => x.UnitPrice <= expensive&&x.UnitPrice>=cheap).Where(y => y.Key == true);
+            var listExpensive = dataSource.Products.GroupBy(x => x.UnitPrice > expensive).Where(y => y.Key == true);
+            Console.WriteLine("----cheap----");
+            foreach (var item in listCheap)
             {
-
-                foreach (var unit in item)
+                foreach (var data in item)
                 {
-                    Console.WriteLine(unit.ProductName);
+                    Console.WriteLine($"Name: {data.ProductName}");
                 }
             }
-            Console.WriteLine("-------------------------");
-            Console.WriteLine("Midlle");
-            foreach (var item in dataSource.Products.Where(z => z.UnitPrice >= middlePrice - 5.0000M && z.UnitPrice <= middlePrice + 5.0000M).GroupBy(x => x.UnitPrice))
+            Console.WriteLine();
+            Console.WriteLine("----average----");
+            foreach (var item in listAverage)
             {
-
-                foreach (var unit in item)
+                foreach (var data in item)
                 {
-                    Console.WriteLine(unit.ProductName);
+                    Console.WriteLine(data.ProductName);
                 }
             }
-            Console.WriteLine("-------------------------");
-            Console.WriteLine("Big");
-            foreach (var item in dataSource.Products.GroupBy(x => x.UnitPrice).Where(x => x.Key > middlePrice + 5.0000M))
+            Console.WriteLine();
+            Console.WriteLine("----expensive----");
+            foreach (var item in listExpensive)
             {
-
-                foreach (var unit in item)
+                foreach (var data in item)
                 {
-                    Console.WriteLine(unit.ProductName);
+                    Console.WriteLine(data.ProductName);
                 }
             }
         }
@@ -193,12 +192,18 @@ namespace SampleQueries
 
         public void Linq9()
         {
-            foreach (var city in dataSource.Customers.GroupBy(x => x.City))
+           
+            var list=dataSource.Customers.GroupBy(x => x.City)
+                .Select(x => new
+                {
+                    City = x.Key,
+                    AverageOrdersIntensity = x.Average(y => y.Orders.Length),
+                    AverageOrdersProfitability= x.Average(z=>z.Orders.Sum(t=>t.Total))
+                }).ToList();
+            Console.WriteLine("       ");
+            foreach (var item in list)
             {
-                Console.WriteLine($"Name: {city.Key}");
-                Console.WriteLine($"Medium profitability:{(city.Sum(y => y.Orders.Sum(z => z.Total)) / dataSource.Customers.Count()).ToString("0.00")} ");
-                Console.WriteLine($"Medium intensity: {(city.Sum(y => y.Orders.Count()) / dataSource.Customers.Count()).ToString("0.00") }");
-                Console.WriteLine(city.Count());
+                Console.WriteLine($"City:{item.City} Intensity: {item.AverageOrdersIntensity}  Profitability: {item.AverageOrdersProfitability}");
             }
         }
         [Category("Restriction Operators")]
@@ -207,41 +212,46 @@ namespace SampleQueries
 
         public void Linq10()
         {
-            Console.WriteLine("By Month");
-            for (int i = 1; i < 13; i++)
-            {
-                decimal count=0;
-                foreach (var item in dataSource.Customers.Where(x=>x.Orders.Length!=0))
-                {
-                    count += item.Orders.Where(y => y.OrderDate.Month == i).Count();
+            var list = dataSource.Customers.Select(x=> new
+            { 
+               
+                byMonth=x.Orders.GroupBy(m=>m.OrderDate.Month).Select(y=> new
+                { 
+                    Month=y.Key,
+                    Profitability=y.Count()
                 }
-                Console.WriteLine($"month:{i} medium activity:{(count/dataSource.Customers.Count()).ToString("0.00")}");
-            }
-
-            Console.WriteLine("-------------------------");
-            Console.WriteLine("By Year");
-
-            for (int i = dataSource.Customers.Where(y => y.Orders.Length != 0).Min(z => z.Orders.Min(x => x.OrderDate.Year)); i <= dataSource.Customers.Where(y => y.Orders.Length != 0).Max(z => z.Orders.Max(x => x.OrderDate.Year)); i++)
-            {
-                decimal count = 0;
-                foreach (var item in dataSource.Customers.Where(x => x.Orders.Length != 0))
+                    ),
+                byYear = x.Orders.GroupBy(m => m.OrderDate.Year).Select(y => new
                 {
-                    count += item.Orders.Where(y => y.OrderDate.Year == i).Count();
+                    Year = y.Key,
+                    Profitability = y.Count()
                 }
-                Console.WriteLine($"year:{i} medium activity:{(count / dataSource.Customers.Count()).ToString("0.00")}");
-            }
-            Console.WriteLine("-------------------------");
-            Console.WriteLine("By Year and Month");
-            for (int j = 1; j < 13; j++)
-            {
-                for (int i = dataSource.Customers.Where(y => y.Orders.Length != 0).Min(z => z.Orders.Min(x => x.OrderDate.Year)); i <= dataSource.Customers.Where(y => y.Orders.Length != 0).Max(z => z.Orders.Max(x => x.OrderDate.Year)); i++)
+                    ),
+                byMonthAndYear = x.Orders.GroupBy(m => new { m.OrderDate.Year, m.OrderDate.Month }).Select(y => new
                 {
-                    decimal count = 0;
-                    foreach (var item in dataSource.Customers.Where(x => x.Orders.Length != 0))
-                    {
-                        count += item.Orders.Where(y => y.OrderDate.Year == i&&y.OrderDate.Month==j).Count();
-                    }
-                    Console.WriteLine($"year:{i} month:{j} medium activity:{(count / dataSource.Customers.Count()).ToString("0.00")}");
+                    Month = y.Key.Month,
+                    Year = y.Key.Year,
+                    Profitability = y.Count()
+                }
+                    ),
+            }
+            );
+            foreach (var item in list)
+            {
+                Console.WriteLine($"by Month");
+                foreach (var itemM in item.byMonth)
+                {
+                    Console.WriteLine($"Month: {itemM.Month} Profitability:{itemM.Profitability} ");
+                }
+                Console.WriteLine($"by Year");
+                foreach (var itemY in item.byYear)
+                {
+                    Console.WriteLine($"Year: {itemY.Year} Profitability:{itemY.Profitability} ");
+                }
+                Console.WriteLine($"by Month and Year");
+                foreach (var itemMAY in item.byMonthAndYear)
+                {
+                    Console.WriteLine($"Month: {itemMAY.Month} Year: {itemMAY.Year} Profitability:{itemMAY.Profitability} ");
                 }
             }
         }
